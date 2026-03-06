@@ -1,7 +1,7 @@
 {
   "name": "stroy-control",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,9 @@
     "react-router-dom": "^6.28.0",
     "@supabase/supabase-js": "^2.46.0",
     "framer-motion": "^11.11.0",
-    "lucide-react": "^0.460.0"
+    "lucide-react": "^0.460.0",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
