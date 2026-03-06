@@ -6,21 +6,31 @@ import {
   Save,
   Trash2,
   Plus,
-  ExternalLink,
   AlertTriangle,
   Loader2,
   GripVertical,
+  Camera,
+  Package,
+  Warehouse,
+  Archive,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
-
-/* ── helpers ── */
 
 function uid() {
   return crypto.randomUUID?.() ?? Math.random().toString(36).slice(2, 10)
 }
 
-/* ── Delete Confirmation Modal ── */
+const DEFAULT_CATEGORIES = [
+  { id: uid(), name: 'Кровля', progress: 0, start_date: null, end_date: null, subcategories: [] },
+  { id: uid(), name: 'Стены', progress: 0, start_date: null, end_date: null, subcategories: [] },
+  { id: uid(), name: 'Фундамент', progress: 0, start_date: null, end_date: null, subcategories: [] },
+  { id: uid(), name: 'Электрика', progress: 0, start_date: null, end_date: null, subcategories: [] },
+  { id: uid(), name: 'Сантехника', progress: 0, start_date: null, end_date: null, subcategories: [] },
+  { id: uid(), name: 'Отделка', progress: 0, start_date: null, end_date: null, subcategories: [] },
+]
+
+/* ── Delete Modal ── */
 
 function DeleteModal({ projectName, onConfirm, onCancel, deleting }) {
   return (
@@ -47,12 +57,12 @@ function DeleteModal({ projectName, onConfirm, onCancel, deleting }) {
         </div>
         <p className="text-sm text-gray-400 mb-6">
           Проект <strong className="text-gray-200">«{projectName}»</strong> будет удалён
-          безвозвратно вместе со всеми данными.
+          безвозвратно.
         </p>
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 py-2.5 text-sm font-medium rounded-xl bg-surface-hover hover:bg-surface-border text-gray-200 transition-colors"
+            className="flex-1 py-2.5 text-sm font-medium rounded-xl bg-surface-hover hover:bg-gray-700 text-gray-200 transition-colors"
           >
             Отмена
           </button>
@@ -70,140 +80,56 @@ function DeleteModal({ projectName, onConfirm, onCancel, deleting }) {
   )
 }
 
-/* ── Category Link Editor ── */
+/* ── Category Row (simplified, no subcategory editing here) ── */
 
-function LinkEditor({ links, onChange }) {
-  function update(i, field, value) {
-    const next = links.map((l, j) => (j === i ? { ...l, [field]: value } : l))
-    onChange(next)
-  }
-  function add() {
-    onChange([...links, { title: '', url: '' }])
-  }
-  function remove(i) {
-    onChange(links.filter((_, j) => j !== i))
-  }
-
-  return (
-    <div className="space-y-2">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">Ссылки</p>
-      <AnimatePresence initial={false}>
-        {links.map((link, i) => (
-          <motion.div
-            key={i}
-            layout
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="flex items-center gap-2"
-          >
-            <ExternalLink className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-            <input
-              value={link.title}
-              onChange={(e) => update(i, 'title', e.target.value)}
-              placeholder="Название"
-              className="flex-1 min-w-0 px-2.5 py-1.5 text-sm bg-surface border border-surface-border rounded-lg text-gray-200 placeholder-gray-600 focus:outline-none focus:border-emerald-600 transition-colors"
-            />
-            <input
-              value={link.url}
-              onChange={(e) => update(i, 'url', e.target.value)}
-              placeholder="https://..."
-              className="flex-1 min-w-0 px-2.5 py-1.5 text-sm bg-surface border border-surface-border rounded-lg text-gray-200 placeholder-gray-600 focus:outline-none focus:border-emerald-600 transition-colors"
-            />
-            <button
-              onClick={() => remove(i)}
-              className="p-1 text-gray-500 hover:text-red-400 transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-      <button
-        onClick={add}
-        className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
-      >
-        <Plus className="w-3 h-3" /> Добавить ссылку
-      </button>
-    </div>
-  )
-}
-
-/* ── Category Card ── */
-
-function CategoryCard({ cat, onUpdate, onDelete }) {
+function CategoryRow({ cat, onUpdate, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -40, transition: { duration: 0.2 } }}
-      transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-      className="bg-surface/60 border border-surface-border rounded-xl p-4 space-y-4"
+      className="bg-dark-bg border border-surface-border rounded-xl p-3 space-y-3"
     >
-      {/* name + delete */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <GripVertical className="w-4 h-4 text-gray-600 shrink-0" />
         <input
           value={cat.name}
           onChange={(e) => onUpdate({ ...cat, name: e.target.value })}
-          placeholder="Название категории"
-          className="flex-1 min-w-0 px-3 py-2 text-sm font-medium bg-card border border-surface-border rounded-lg text-gray-100 placeholder-gray-600 focus:outline-none focus:border-emerald-600 transition-colors"
+          placeholder="Название"
+          className="flex-1 min-w-0 px-2.5 py-1.5 text-sm font-medium bg-card border border-surface-border rounded-lg text-gray-100 placeholder-gray-600 focus:outline-none focus:border-accent transition-colors"
         />
         {confirmDelete ? (
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={onDelete}
-              className="px-2.5 py-1.5 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-            >
+          <div className="flex gap-1 shrink-0">
+            <button onClick={onDelete} className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
               Да
             </button>
-            <button
-              onClick={() => setConfirmDelete(false)}
-              className="px-2.5 py-1.5 text-xs font-medium bg-surface-hover hover:bg-surface-border text-gray-300 rounded-lg transition-colors"
-            >
+            <button onClick={() => setConfirmDelete(false)} className="px-2 py-1 text-xs bg-surface-hover text-gray-300 rounded-lg transition-colors">
               Нет
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="p-2 text-gray-500 hover:text-red-400 transition-colors shrink-0"
-            title="Удалить категорию"
-          >
-            <Trash2 className="w-4 h-4" />
+          <button onClick={() => setConfirmDelete(true)} className="p-1.5 text-gray-500 hover:text-red-400 transition-colors shrink-0">
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
-
-      {/* progress slider */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">Прогресс</span>
-          <span className="text-sm font-bold text-emerald-400">{cat.progress}%</span>
-        </div>
+      <div className="flex gap-2">
         <input
-          type="range"
-          min={0}
-          max={100}
-          value={cat.progress}
-          onChange={(e) => onUpdate({ ...cat, progress: Number(e.target.value) })}
-          className="w-full h-2 rounded-full appearance-none bg-gray-700 accent-emerald-500 cursor-pointer
-            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
-            [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-500
-            [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(16,185,129,0.4)]
-            [&::-webkit-slider-thumb]:transition-shadow [&::-webkit-slider-thumb]:hover:shadow-[0_0_12px_rgba(16,185,129,0.6)]"
+          type="date"
+          value={cat.start_date || ''}
+          onChange={(e) => onUpdate({ ...cat, start_date: e.target.value || null })}
+          className="flex-1 px-2 py-1.5 text-xs bg-card border border-surface-border rounded-lg text-gray-300 focus:outline-none focus:border-accent transition-colors"
+        />
+        <input
+          type="date"
+          value={cat.end_date || ''}
+          onChange={(e) => onUpdate({ ...cat, end_date: e.target.value || null })}
+          className="flex-1 px-2 py-1.5 text-xs bg-card border border-surface-border rounded-lg text-gray-300 focus:outline-none focus:border-accent transition-colors"
         />
       </div>
-
-      {/* links */}
-      <LinkEditor
-        links={cat.links || []}
-        onChange={(links) => onUpdate({ ...cat, links })}
-      />
     </motion.div>
   )
 }
@@ -214,6 +140,12 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
   const navigate = useNavigate()
   const { addToast } = useToast()
   const [name, setName] = useState(project.name)
+  const [status, setStatus] = useState(project.status || 'active')
+  const [startDate, setStartDate] = useState(project.start_date || '')
+  const [endDate, setEndDate] = useState(project.end_date || '')
+  const [tgPhotos, setTgPhotos] = useState(project.settings?.telegram_links?.photos || '')
+  const [tgMaterials, setTgMaterials] = useState(project.settings?.telegram_links?.materials || '')
+  const [tgWarehouse, setTgWarehouse] = useState(project.settings?.telegram_links?.warehouse || '')
   const [categories, setCategories] = useState(
     () => (project.settings?.categories || []).map((c) => ({ ...c }))
   )
@@ -224,6 +156,12 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
 
   useEffect(() => {
     setName(project.name)
+    setStatus(project.status || 'active')
+    setStartDate(project.start_date || '')
+    setEndDate(project.end_date || '')
+    setTgPhotos(project.settings?.telegram_links?.photos || '')
+    setTgMaterials(project.settings?.telegram_links?.materials || '')
+    setTgWarehouse(project.settings?.telegram_links?.warehouse || '')
     setCategories((project.settings?.categories || []).map((c) => ({ ...c })))
   }, [project])
 
@@ -238,26 +176,54 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
   function addCategory() {
     setCategories((prev) => [
       ...prev,
-      { id: uid(), name: '', progress: 0, links: [] },
+      { id: uid(), name: '', progress: 0, start_date: null, end_date: null, subcategories: [] },
     ])
+  }
+
+  function calcProgress(cats) {
+    if (cats.length === 0) return 0
+    return Math.round(cats.reduce((s, c) => {
+      const subs = c.subcategories || []
+      const catP = subs.length > 0
+        ? Math.round(subs.reduce((ss, sub) => ss + (sub.progress || 0), 0) / subs.length)
+        : (c.progress || 0)
+      return s + catP
+    }, 0) / cats.length)
   }
 
   async function handleSave() {
     setSaving(true)
     setError(null)
 
-    const avgProgress =
-      categories.length > 0
-        ? Math.round(categories.reduce((s, c) => s + (c.progress || 0), 0) / categories.length)
-        : 0
+    // Recalc category progress from subcategories
+    const updatedCats = categories.map((cat) => {
+      const subs = cat.subcategories || []
+      const catProgress = subs.length > 0
+        ? Math.round(subs.reduce((s, sub) => s + (sub.progress || 0), 0) / subs.length)
+        : (cat.progress || 0)
+      return { ...cat, progress: catProgress }
+    })
+
+    const overallProgress = calcProgress(updatedCats)
 
     try {
       const { data, error: err } = await supabase
         .from('projects')
         .update({
           name,
-          settings: { ...project.settings, categories },
-          progress: avgProgress,
+          status,
+          start_date: startDate || null,
+          end_date: endDate || null,
+          progress: overallProgress,
+          settings: {
+            ...project.settings,
+            telegram_links: {
+              photos: tgPhotos || null,
+              materials: tgMaterials || null,
+              warehouse: tgWarehouse || null,
+            },
+            categories: updatedCats,
+          },
         })
         .eq('id', project.id)
         .select()
@@ -282,7 +248,6 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
         .from('projects')
         .delete()
         .eq('id', project.id)
-
       if (err) throw err
       addToast('Проект удалён')
       navigate('/', { replace: true })
@@ -295,7 +260,6 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
 
   return (
     <>
-      {/* backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -304,7 +268,6 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
         onClick={onClose}
       />
 
-      {/* panel */}
       <motion.aside
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
@@ -312,20 +275,16 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-dark-bg border-l border-surface-border flex flex-col overflow-hidden"
       >
-        {/* header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-border shrink-0">
-          <h2 className="text-lg font-bold text-gray-100">Настройки проекта</h2>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-100 transition-colors"
-          >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-border shrink-0">
+          <h2 className="text-lg font-bold">Настройки проекта</h2>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* body — scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-          {/* error */}
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-900/30 border border-red-800 rounded-lg text-red-300 text-sm">
               <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -333,19 +292,97 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
             </div>
           )}
 
-          {/* project name */}
-          <div className="space-y-2">
-            <label className="text-xs text-gray-500 uppercase tracking-wide">
-              Название проекта
-            </label>
+          {/* Name */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-gray-500 uppercase tracking-wide">Название</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-3 bg-surface border border-surface-border rounded-xl text-gray-100 text-base font-medium placeholder-gray-600 focus:outline-none focus:border-emerald-600 transition-colors"
+              className="w-full px-3 py-2.5 bg-card border border-surface-border rounded-xl text-gray-100 font-medium focus:outline-none focus:border-accent transition-colors"
             />
           </div>
 
-          {/* categories */}
+          {/* Status */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-gray-500 uppercase tracking-wide">Статус</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStatus('active')}
+                className={`flex-1 py-2 text-sm font-medium rounded-xl border transition-colors ${
+                  status === 'active'
+                    ? 'bg-emerald-600/20 border-emerald-600/50 text-emerald-400'
+                    : 'bg-card border-surface-border text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                Активный
+              </button>
+              <button
+                onClick={() => setStatus('archived')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-xl border transition-colors ${
+                  status === 'archived'
+                    ? 'bg-gray-700/50 border-gray-600 text-gray-200'
+                    : 'bg-card border-surface-border text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <Archive className="w-3.5 h-3.5" /> Архив
+              </button>
+            </div>
+          </div>
+
+          {/* Dates */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-gray-500 uppercase tracking-wide">Даты проекта</label>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="flex-1 px-3 py-2 text-sm bg-card border border-surface-border rounded-xl text-gray-300 focus:outline-none focus:border-accent transition-colors"
+              />
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="flex-1 px-3 py-2 text-sm bg-card border border-surface-border rounded-xl text-gray-300 focus:outline-none focus:border-accent transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* TG Links */}
+          <div className="space-y-3">
+            <label className="text-xs text-gray-500 uppercase tracking-wide">Telegram-ссылки</label>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-gray-500 shrink-0" />
+                <input
+                  value={tgPhotos}
+                  onChange={(e) => setTgPhotos(e.target.value)}
+                  placeholder="Фотоотчёт — https://t.me/..."
+                  className="flex-1 px-2.5 py-1.5 text-sm bg-card border border-surface-border rounded-lg text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent transition-colors"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-gray-500 shrink-0" />
+                <input
+                  value={tgMaterials}
+                  onChange={(e) => setTgMaterials(e.target.value)}
+                  placeholder="Приход материала — https://t.me/..."
+                  className="flex-1 px-2.5 py-1.5 text-sm bg-card border border-surface-border rounded-lg text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent transition-colors"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Warehouse className="w-4 h-4 text-gray-500 shrink-0" />
+                <input
+                  value={tgWarehouse}
+                  onChange={(e) => setTgWarehouse(e.target.value)}
+                  placeholder="Склад — https://t.me/..."
+                  className="flex-1 px-2.5 py-1.5 text-sm bg-card border border-surface-border rounded-lg text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent transition-colors"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Categories */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs text-gray-500 uppercase tracking-wide">
@@ -353,7 +390,7 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
               </label>
               <button
                 onClick={addCategory}
-                className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+                className="flex items-center gap-1 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> Добавить
               </button>
@@ -361,7 +398,7 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
 
             <AnimatePresence initial={false}>
               {categories.map((cat) => (
-                <CategoryCard
+                <CategoryRow
                   key={cat.id}
                   cat={cat}
                   onUpdate={(updated) => updateCategory(cat.id, updated)}
@@ -371,15 +408,13 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
             </AnimatePresence>
 
             {categories.length === 0 && (
-              <p className="text-sm text-gray-600 text-center py-6">
-                Нет категорий. Нажмите «Добавить».
-              </p>
+              <p className="text-sm text-gray-600 text-center py-4">Нет категорий</p>
             )}
           </div>
         </div>
 
-        {/* footer */}
-        <div className="px-6 py-4 border-t border-surface-border space-y-3 shrink-0">
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-surface-border space-y-2.5 shrink-0">
           <button
             onClick={handleSave}
             disabled={saving}
@@ -397,7 +432,6 @@ export default function AdminPanel({ project, onClose, onProjectUpdated }) {
         </div>
       </motion.aside>
 
-      {/* delete modal */}
       <AnimatePresence>
         {showDeleteModal && (
           <DeleteModal
